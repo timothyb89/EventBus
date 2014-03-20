@@ -1,5 +1,7 @@
 package org.timothyb89.eventbus;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.PriorityQueue;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +36,9 @@ public class EventQueueDefinition {
 	public void push(Event event) {
 		boolean vetoed = false;
 		
-		for (EventQueueEntry e : queue) {
+		List<EventQueueEntry> copy = new LinkedList<>(queue);
+		
+		for (EventQueueEntry e : copy) {
 			log.debug("Notifying listener: {}", e.getMethod());
 			
 			// if the event has been vetoed, and this event is vetoable,
@@ -61,7 +65,9 @@ public class EventQueueDefinition {
 	public void push(Event event, int priority) {
 		boolean vetoed = false;
 		
-		for (EventQueueEntry e : queue) {
+		List<EventQueueEntry> copy = new LinkedList<>(queue);
+		
+		for (EventQueueEntry e : copy) {
 			log.debug("Notifying listener: {}", e.getMethod());
 			
 			if (vetoed && e.isVetoable()) {

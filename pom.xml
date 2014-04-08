@@ -7,6 +7,9 @@
 	<packaging>jar</packaging>
 
 	<name>${project.groupId}:${project.artifactId}</name>
+	
+	<description>An event distpaching library.</description>
+	
 	<url>http://github.com/timothyb89/eventbus</url>
 	
 	<licenses>

@@ -8,6 +8,17 @@ Quickstart
 
 _These examples make use of [Lombok](http://projectlombok.org/) annotations for brevity._
 
+### Get it
+You can find the latest release from the [Releases page](https://github.com/timothyb89/EventBus/releases) or in Maven Central:
+
+```xml
+<dependency>
+    <groupId>org.timothyb89</groupId>
+    <artifactId>eventbus</artifactId>
+    <version>1.0</version>
+</dependency>
+```
+
 ### Define Events
 Events are simple Java objects that extend an `Event` class. There are no restrictions about what can be stored in them.
 ```java

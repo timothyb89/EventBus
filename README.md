@@ -8,7 +8,7 @@ Quickstart
 
 _These examples make use of [Lombok](http://projectlombok.org/) annotations for brevity._
 
-### Get it
+#### Get it
 You can find the latest release from the [Releases page](https://github.com/timothyb89/EventBus/releases) or in Maven Central:
 
 ```xml
@@ -19,7 +19,7 @@ You can find the latest release from the [Releases page](https://github.com/timo
 </dependency>
 ```
 
-### Define Events
+#### Define Events
 Events are simple Java objects that extend an `Event` class. There are no restrictions about what can be stored in them.
 ```java
 import org.timothyb89.eventbus.Event;
@@ -35,7 +35,7 @@ public class SomeEvent extends Event {
 ```
 
 
-### Make an EventBus
+#### Make an EventBus
 
 EventBus instances only need to have a list of event classes the may need to process. To add an event type, use `EventBus.add(Class)`.
 
@@ -96,29 +96,34 @@ producer.triggerSomeEvent();
 ```
 
 
-Example
--------
+### Example
+
 For a complete working example, see [the demo package](https://github.com/timothyb89/EventBus/tree/master/src/main/java/org/timothyb89/eventbus/demo).
+
+Future Plans
+------------
+
+See [Future Plans](https://github.com/timothyb89/EventBus/wiki/Future-Plans).
 
 FAQ
 ---
 
-### Is it thread-safe?
+#### Is it thread-safe?
 It should be safe to use between multiple threads, but currently events are distributed on the same thread as the caller. Unintential locking may occur if event listeners attempt to perform long-running tasks or do not otherwise return quickly.
 
 In the future more event processing implementations may be introduced, allowing events to be processed in a dedicated event processing thread, in the context of another preexisting thread (in the style of GUI event loops), or as they are currently handled.
 
-### How do event hierarchies work?
+#### How do event hierarchies work?
 All events must subclass `Event`, but you may also create event hierarchies. If you have a base `AnimalEvent` class with a subclass `DogEvent` you'll see the following behavior:
  * Listeners for `DogEvent` will only be notified of actual `DogEvent` instances.
  * Listeners for `AnimalEvent` will be notified of both `AnimalEvent` and `DogEvent` instances.
 
 Note that you'll still need to create dedicated event queues via `EventBus.add()` for each subclass you actually wish to deliver events for.
 
-### How are exceptions handled?
+#### How are exceptions handled?
 Currently all exceptions are caught and logged. `EventVetoException` is a special case and is described below.
 
-### Can events be prioritized?
+#### Can events be prioritized?
 Yes. The `@EventHandler` annotation accepts an additional `priority` parameter as an integer. Some common priorities are defined in the `EventPriority` class.
 
 By default, event handlers are implicitly `@EventHandler( priority = EventPriority.NORMAL )`, but this can be any other integer. Higher priorities are positive, while lower priorities are negative; "normal" has a priority of zero.

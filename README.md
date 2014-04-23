@@ -135,3 +135,15 @@ Yes, but event handlers may additionally flag themselves immune from this. By de
 
 Event handlers may throw an `EventVetoException` during the course of their execution to prevent lower-priority events from executing. However, any event handlers defined with `vetoable = false` _will_ still execute.  
 
+### Can interfaces specify event handlers?
+Not at this time, no. This might be possible, but will likely not happen in the near future.
+
+### Can private methods be used as event handlers?
+Yes, but this is turned off by default. To enable private method scanning, annotate the class containing the method with some [`@EventScanMode`](https://github.com/timothyb89/EventBus/blob/master/src/main/java/org/timothyb89/eventbus/EventScanMode.java). You'll also need to specify an [`EventScanType`](https://github.com/timothyb89/EventBus/blob/master/src/main/java/org/timothyb89/eventbus/EventScanType.java):
+* `FAST`: the default mode; only public methods are scanned, including inherited methods
+* `EXTENDED`: all methods normally scanned by `FAST`, but also direct private methods (not inherited)
+* `FULL`: all methods scanned by `EXTENDED`, but also private methods of superclasses
+
+There are some things to consider when turning on extended or full scanning. For one, some `SecurityManager` might disallow execution of private methods, although this isn't generally the case on the desktop JVM. There's also a higher runtime cost. Scanning of private methods is another full scanning pass; for complex classes, `EXTENDED` will probably be slower than `FAST`. Additionally, `FULL` scanning must (due to how the reflection APIs are implemented) scan every individual superclass, causing more full scanning passes. 
+
+You should try to only use `FULL` scanning when a superclass actually requires private method scanning to reduce the performance impact. `EXTENDED` scanning is useful when no superclass events are needed, and `FAST` scanning is often all you'll need if you only use public event handling methods.

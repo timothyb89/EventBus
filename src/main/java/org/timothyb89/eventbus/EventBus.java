@@ -1,6 +1,7 @@
 package org.timothyb89.eventbus;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -39,13 +40,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EventBus {
 	
-	private List<EventQueueDefinition> definitions;
+	private final List<EventQueueDefinition> definitions;
 	
 	/**
 	 * Client-safe interface for the event bus
 	 */
 	@Getter
-	private EventBusClient client;
+	private final EventBusClient client;
 	
 	public EventBus() {
 		definitions = new ArrayList<>();
@@ -57,7 +58,7 @@ public class EventBus {
 	 * Defines a new event type. A new event queue will be added for the
 	 * provided class, and future invocations of {@link push(Event)} will notify
 	 * registered listeners.
-	 * @param e the event class to register
+	 * @param clazz the event class to register
 	 */
 	public void add(Class<? extends Event> clazz) {
 		definitions.add(new EventQueueDefinition(clazz));
@@ -174,13 +175,70 @@ public class EventBus {
 	}
 	
 	/**
-	 * Registers all methods of the given object annotated with
-	 * {@link EventHandler}.
+	 * Scans non-public members of the given object at the level of the given
+	 * class. Due to how {@link Class#getDeclaredMethods()} works, this only
+	 * scans members directly defined in {@code clazz}.
+	 * @param o the object to scan
+	 * @param clazz the specific class to scan
+	 */
+	private void scanInternal(Object o, Class clazz) {
+		for (Method m : clazz.getDeclaredMethods()) {
+			if (Modifier.isPublic(m.getModifiers())) {
+				// public fields have already been processed
+				continue;
+			}
+			
+			// skip methods without annotation
+			if (!m.isAnnotationPresent(EventHandler.class)) {
+				continue;
+			}
+			
+			// set the method accessible and register it
+			EventHandler h = m.getAnnotation(EventHandler.class);
+			int priority = h.priority();
+			boolean vetoable = h.vetoable();
+
+			m.setAccessible(true);
+
+			registerMethod(o, m, priority, vetoable);
+		}
+	}
+	
+	/**
+	 * Attempts to register all methods of the given object annotated with
+	 * {@link EventHandler} to receive events from this bus. Only methods
+	 * that are annotated with {@code @EventHandler} and accept a single
+	 * parameter of an event type emitted from this bus (that is, previously
+	 * added with {@link #add(java.lang.Class)}) will be registered.
+	 * <p>The {@link EventScanMode} annotation may be used to control the
+	 * behavior and degree of scanning. By default the scan mode is
+	 * {@link EventScanType#FAST} and will scan all public methods for the
+	 * {@code EventHandler} annotation, including methods inherited from some
+	 * superclass. However, private fields will not be scanned.</p>
+	 * <p>{@link EventScanType#EXTENDED} additionally scans and registers
+	 * private methods defined directly in the given object, but does not scan
+	 * private fields in superclasses. This incurs a higher runtime cost at
+	 * registration time as more methods are scanned.</p>
+	 * <p>The final scanning type, {@link EventScanType#FULL}, scans all public
+	 * methods (as with the {@code FAST} type), direct private members (as with
+	 * {@code EXTENDED}), and private members defined in any superclass. This
+	 * will incur the highest runtime cost, but will preserve any event-related
+	 * functionality.
 	 * @see EventBus#registerMethod(Object, Method, int)
 	 * @param o the object to process
 	 */
 	public void register(Object o) {
-		for (Method m : o.getClass().getMethods()) {
+		Class<?> c = o.getClass();
+		
+		EventScanType scanType = EventScanType.FAST;
+		if (c.isAnnotationPresent(EventScanMode.class)) {
+			EventScanMode modeDef = c.getAnnotation(EventScanMode.class);
+			
+			scanType = modeDef.type();
+		}
+		
+		// always scan all public members
+		for (Method m : c.getMethods()) {
 			if (m.isAnnotationPresent(EventHandler.class)) {
 				// get the priority from the annotation
 				EventHandler h = m.getAnnotation(EventHandler.class);
@@ -188,6 +246,24 @@ public class EventBus {
 				boolean vetoable = h.vetoable();
 				
 				registerMethod(o, m, priority, vetoable);
+			}
+		}
+		
+		// scan private fields if requested
+		if (scanType == EventScanType.EXTENDED
+				|| scanType == EventScanType.FULL) {
+			scanInternal(o, c);
+		}
+		
+		// also scan superclasses if requested
+		if (scanType == EventScanType.FULL) {
+			Class sup = c.getSuperclass();
+			
+			// work up the obejct hierarchy
+			while (sup != Object.class) {
+				scanInternal(o, sup);
+				
+				sup = sup.getSuperclass();
 			}
 		}
 	}

@@ -16,23 +16,28 @@ import lombok.extern.slf4j.Slf4j;
 public class EventQueueEntry implements Comparable<EventQueueEntry> {
 	
 	@Getter
-	private Object object;
+	private final Object object;
 	
 	@Getter
-	private Method method;
+	private final Method method;
 	
 	@Getter
-	private int priority;
+	private final int priority;
 	
 	@Getter
-	private boolean vetoable;
+	private final boolean vetoable;
+	
+	@Getter
+	private final boolean deadlineExempt;
 
 	public EventQueueEntry(
-			Object object, Method method, int priority, boolean vetoable) {
+			Object object, Method method, int priority,
+			boolean vetoable, boolean deadlineExempt) {
 		this.object = object;
 		this.method = method;
 		this.priority = priority;
 		this.vetoable = vetoable;
+		this.deadlineExempt = deadlineExempt;
 	}
 	
 	@Override

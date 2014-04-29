@@ -14,10 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 public class EventQueueDefinition {
 	
 	@Getter
-	private Class<? extends Event> eventType;
+	private final Class<? extends Event> eventType;
 	
 	@Getter
-	private PriorityQueue<EventQueueEntry> queue;
+	private final PriorityQueue<EventQueueEntry> queue;
 	
 	public EventQueueDefinition(Class<? extends Event> eventType) {
 		this.eventType = eventType;

@@ -2,7 +2,7 @@ package org.timothyb89.eventbus;
 
 /**
  *
- * @author tim
+ * @author timothyb89
  */
 public enum EventScanType {
 	

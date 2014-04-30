@@ -4,6 +4,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.timothyb89.eventbus.Event;
 import org.timothyb89.eventbus.EventQueueDefinition;
 import org.timothyb89.eventbus.EventQueueEntry;
@@ -28,6 +29,7 @@ import org.timothyb89.eventbus.EventVetoException;
  * spawn a particular number of worker threads.</p>
  * @author timothyb89
  */
+@Slf4j
 public class PooledExecutor implements Executor {
 
 	private final ExecutorService service;
@@ -79,17 +81,22 @@ public class PooledExecutor implements Executor {
 		public Object call() throws Exception {
 			if (data.vetoed && entry.isVetoable()) {
 				// event vetoed
+				log.trace("Event vetoed: {}", entry);
 				return null;
 			}
 			
-			if (!entry.isDeadlineExempt()) {
+			if (data.deadline > 0 && !entry.isDeadlineExempt()) {
 				if (System.currentTimeMillis() - data.start > data.deadline) {
 					// deadline exceeded
+					log.trace(
+							"Event handler skipped, deadline exceeded: {}",
+							entry);
 					return null;
 				}
 			}
 			
 			try {
+				log.debug("Notifying event: {}", entry);
 				entry.notify(data.event);
 			} catch (EventVetoException ex) {
 				data.vetoed = true;

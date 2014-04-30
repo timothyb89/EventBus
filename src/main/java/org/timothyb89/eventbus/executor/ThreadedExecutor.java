@@ -4,6 +4,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.timothyb89.eventbus.Event;
 import org.timothyb89.eventbus.EventQueueDefinition;
 import org.timothyb89.eventbus.EventQueueEntry;
@@ -17,6 +18,7 @@ import org.timothyb89.eventbus.EventVetoException;
  * occur.
  * @author timothyb89
  */
+@Slf4j
 public class ThreadedExecutor implements Executor {
 
 	private final LinkedBlockingQueue<QueueEntry> queue;
@@ -26,14 +28,18 @@ public class ThreadedExecutor implements Executor {
 
 	public ThreadedExecutor(String threadName) {
 		queue = new LinkedBlockingQueue<>();
-		processorThread = new Thread(eventProcessor, threadName);
 		killed = false;
+		
+		processorThread = new Thread(eventProcessor, threadName);
+		processorThread.start();
 	}
 
 	public ThreadedExecutor() {
 		queue = new LinkedBlockingQueue<>();
-		processorThread = new Thread(eventProcessor);
 		killed = false;
+		
+		processorThread = new Thread(eventProcessor);
+		processorThread.start();
 	}
 	
 	@Override
@@ -73,17 +79,22 @@ public class ThreadedExecutor implements Executor {
 					boolean vetoed = false;
 					for (EventQueueEntry e : queue) {
 						if (vetoed && e.isVetoable()) {
+							log.trace("Event vetoed: {}", e);
 							continue;
 						}
 
 						if (!e.isDeadlineExempt()) {
 							if (entry.deadline > 0 &&
 									System.currentTimeMillis() - start > entry.deadline) {
+								log.trace(
+										"Event skipped; deadline exceeded: {}",
+										e);
 								continue;
 							}
 						}
 
 						try {
+							log.debug("Notifying event: {}", e);
 							e.notify(entry.event);
 						} catch (EventVetoException ex) {
 							// skip others on event veto

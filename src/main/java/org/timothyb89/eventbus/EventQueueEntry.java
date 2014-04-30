@@ -2,6 +2,7 @@ package org.timothyb89.eventbus;
 
 import java.lang.reflect.Method;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author timothyb89
  */
 @Slf4j
+@ToString
 public class EventQueueEntry implements Comparable<EventQueueEntry> {
 	
 	@Getter

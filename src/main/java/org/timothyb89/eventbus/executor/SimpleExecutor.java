@@ -52,14 +52,16 @@ public class SimpleExecutor implements Executor {
 			// if the event has been vetoed, and this event is vetoable,
 			// skip it
 			if (vetoed && e.isVetoable()) {
+				log.trace("Event vetoed: {}", e);
 				continue;
 			}
 			
-			// if we've exceeded the deadline, stop
+			// if we've exceeded the deadline (if any), stop
 			// we can't stop handlers already in progress so we may exceed the
 			// deadline, but we should at least try to stop ASAP
-			if (!e.isDeadlineExempt()) {
+			if (deadline > 0 && !e.isDeadlineExempt()) {
 				if (System.currentTimeMillis() - start > deadline) {
+					log.trace("Event skipped; deadline exceeded: {}", e);
 					continue;
 				}
 			}

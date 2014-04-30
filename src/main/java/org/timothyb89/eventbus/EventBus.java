@@ -263,7 +263,7 @@ public class EventBus {
 	 * {@code EXTENDED}), and private members defined in any superclass. This
 	 * will incur the highest runtime cost, but will preserve any event-related
 	 * functionality.
-	 * @see EventBus#registerMethod(Object, Method, int)
+	 * @see #registerMethod(Object, Method, int, boolean, boolean)
 	 * @param o the object to process
 	 */
 	public void register(Object o) {

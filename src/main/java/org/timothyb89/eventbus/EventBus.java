@@ -168,7 +168,9 @@ public class EventBus {
 		// work as expected)
 		for (EventQueueDefinition d : definitions) {
 			if (param.isAssignableFrom(d.getEventType())) {
-				d.getQueue().add(new EventQueueEntry(o, m, priority, vetoable));
+				if (!d.getQueue().add(new EventQueueEntry(o, m, priority, vetoable))) {
+					log.debug("wat, returned false");
+				}
 				log.debug("Added {} to queue {}", m, d.getEventType());
 			}
 		}

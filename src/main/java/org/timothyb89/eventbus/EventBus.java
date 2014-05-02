@@ -3,7 +3,6 @@ package org.timothyb89.eventbus;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +81,9 @@ public class EventBus {
 	 * Defines a new event type. A new event queue will be added for the
 	 * provided class, and future invocations of {@link push(Event)} will notify
 	 * registered listeners.
+	 * <p>Note that this class <i>is not</i> thread-safe; {@code add()} and
+	 * {@code remove()} may cause a {@code ConcurrentModificationException} when
+	 * used concurrently.</p>
 	 * @param clazz the event class to register
 	 */
 	public void add(Class<? extends Event> clazz) {
@@ -129,6 +131,8 @@ public class EventBus {
 	 * listeners have been notified; however, different executors may offload
 	 * processing to one or more dedicated threads, causing this method to
 	 * return immediately.</p>
+	 * <p>Unlike {@link #add(Class)} and {@link #remove(Class)}, this method
+	 * <i>is</i> thread-safe and can be safely used concurrently.</p>
 	 * @param event the event to push
 	 */
 	public void push(Event event) {
@@ -205,7 +209,7 @@ public class EventBus {
 		// work as expected)
 		for (EventQueueDefinition d : definitions) {
 			if (param.isAssignableFrom(d.getEventType())) {
-				d.getQueue().add(new EventQueueEntry(
+				d.add(new EventQueueEntry(
 						o, m, priority, vetoable, deadlineExempt));
 				log.debug("Added {} to queue {}", m, d.getEventType());
 			}
@@ -315,20 +319,7 @@ public class EventBus {
 	 */
 	public void deregister(Object o) {
 		for (EventQueueDefinition def : definitions) {
-			// a queue for the entries to remove
-			// we can't remove them inline because we'd cause a
-			// ConcurrentModificationException
-			List<EventQueueEntry> removeQueue = new LinkedList<>();
-			
-			// find all entries to remove
-			for (EventQueueEntry e : def.getQueue()) {
-				if (e.getObject() == o) {
-					removeQueue.add(e);
-				}
-			}
-			
-			// remove them
-			def.getQueue().removeAll(removeQueue);
+			def.removeAll(o);
 		}
 	}
 	

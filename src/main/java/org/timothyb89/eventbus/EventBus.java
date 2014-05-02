@@ -138,7 +138,7 @@ public class EventBus {
 	public void push(Event event) {
 		EventQueueDefinition def = getQueueForClass(event.getClass());
 		if (def != null) {
-			executor.push(def, event);
+			executor.push(def, event, -1);
 		} // TODO: else: warn?
 	}
 	

@@ -48,6 +48,33 @@ public class EventQueueEntry implements Comparable<EventQueueEntry> {
 	}
 	
 	/**
+	 * Checks if the event handler referenced by this object can be invoked.
+	 * Specifically, this determines if the event can be triggered after a veto
+	 * has occurred, or if a deadline has already passed.
+	 * @param vetoed true if the event has already been vetoed, false otherwise
+	 * @param start the starting time of event processing
+	 * @param deadline the deadline, or -1 if none is set
+	 * @return true if the handler can be notified, false otherwise
+	 */
+	public boolean canInvoke(boolean vetoed, long start, long deadline) {
+		if (vetoed && vetoable) {
+			log.trace("Skipping handler (vetoed): {}", this);
+			return false;
+		}
+		
+		if (deadline > 0 && !deadlineExempt) {
+			if (System.currentTimeMillis() - start > deadline) {
+				log.trace(
+						"Skipping handler (deadline exceeded): {}",
+						this);
+				return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	/**
 	 * Notifies this queue entry of an event. Note that this blatantly assumes
 	 * that the passed event is compatible with the method associated with this
 	 * entry (as it was checked at registration time). As such, any outside 
@@ -56,6 +83,7 @@ public class EventQueueEntry implements Comparable<EventQueueEntry> {
 	 */
 	public void notify(Event event) {
 		try {
+			log.debug("Notifying handler: {}", method);
 			method.invoke(object, event);
 		} catch (EventVetoException ex) {
 			// skip this - it needs to be passed to the queue to skip properly

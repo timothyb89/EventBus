@@ -10,15 +10,9 @@ import org.timothyb89.eventbus.EventQueueDefinition;
 public interface Executor {
 	
 	/**
-	 * Dispatches the given event to event handlers in {@code def}.
-	 * @param def the queue to notify
-	 * @param event the event to dispatch
-	 */
-	public void push(EventQueueDefinition def, Event event);
-	
-	/**
 	 * Dispatches the given event to event handlers in {@code def}, only
-	 * notifying handlers before {@code deadline} has been exceeded.
+	 * notifying handlers before {@code deadline} has been exceeded. A deadline
+	 * less than zero indicates that no deadline should be enforced.
 	 * @param def the queue to notify
 	 * @param event the event to dispatch
 	 * @param deadline the relative deadline, in milliseconds

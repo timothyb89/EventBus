@@ -1,5 +1,6 @@
 package org.timothyb89.eventbus.executor;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,14 +42,6 @@ public class PooledExecutor implements Executor {
 	public PooledExecutor() {
 		service = Executors.newCachedThreadPool();
 	}
-	
-	@Override
-	public void push(EventQueueDefinition def, Event event) {
-		EventData data = new EventData(event, System.currentTimeMillis(), -1);
-		for (EventQueueEntry entry : def.getQueue()) {
-			service.submit(new NotifyTask(data, entry));
-		}
-	}
 
 	@Override
 	public void push(EventQueueDefinition def, Event event, long deadline) {
@@ -57,8 +50,10 @@ public class PooledExecutor implements Executor {
 				System.currentTimeMillis(),
 				deadline);
 		
-		for (EventQueueEntry entry : def.getQueue()) {
-			service.submit(new NotifyTask(data, entry));
+		for (List<EventQueueEntry> entries : def.getQueue().values()) {
+			for (EventQueueEntry entry : entries) {
+				service.submit(new NotifyTask(data, entry));
+			}
 		}
 	}
 	
@@ -79,24 +74,11 @@ public class PooledExecutor implements Executor {
 		
 		@Override
 		public Object call() throws Exception {
-			if (data.vetoed && entry.isVetoable()) {
-				// event vetoed
-				log.trace("Event vetoed: {}", entry);
+			if (!entry.canInvoke(data.vetoed, data.start, data.deadline)) {
 				return null;
 			}
 			
-			if (data.deadline > 0 && !entry.isDeadlineExempt()) {
-				if (System.currentTimeMillis() - data.start > data.deadline) {
-					// deadline exceeded
-					log.trace(
-							"Event handler skipped, deadline exceeded: {}",
-							entry);
-					return null;
-				}
-			}
-			
 			try {
-				log.debug("Notifying event: {}", entry);
 				entry.notify(data.event);
 			} catch (EventVetoException ex) {
 				data.vetoed = true;

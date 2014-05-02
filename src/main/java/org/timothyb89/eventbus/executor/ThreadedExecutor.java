@@ -1,6 +1,5 @@
 package org.timothyb89.eventbus.executor;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import lombok.Data;
@@ -41,11 +40,6 @@ public class ThreadedExecutor implements Executor {
 		processorThread = new Thread(eventProcessor);
 		processorThread.start();
 	}
-	
-	@Override
-	public void push(EventQueueDefinition def, Event event) {
-		queue.offer(new QueueEntry(def, event, -1));
-	}
 
 	@Override
 	public void push(EventQueueDefinition def, Event event, long deadline) {
@@ -66,41 +60,33 @@ public class ThreadedExecutor implements Executor {
 	
 	private final Runnable eventProcessor = new Runnable() {
 
-		@Override
-		public void run() {
-			while (!killed) {
-				try {
-					QueueEntry entry = queue.take();
-					
-					List<EventQueueEntry> queue = new LinkedList<>(entry.def.getQueue());
-		
-					long start = System.currentTimeMillis();
-
-					boolean vetoed = false;
-					for (EventQueueEntry e : queue) {
-						if (vetoed && e.isVetoable()) {
-							log.trace("Event vetoed: {}", e);
+		private void process(QueueEntry qe) {
+			boolean vetoed = false;
+			long start = System.currentTimeMillis();
+			
+			for (List<EventQueueEntry> entries : qe.def.getQueue().values()) {
+				synchronized (entries) {
+					for (EventQueueEntry handler : entries) {
+						if (!handler.canInvoke(vetoed, start, qe.deadline)) {
 							continue;
 						}
-
-						if (!e.isDeadlineExempt()) {
-							if (entry.deadline > 0 &&
-									System.currentTimeMillis() - start > entry.deadline) {
-								log.trace(
-										"Event skipped; deadline exceeded: {}",
-										e);
-								continue;
-							}
-						}
-
+						
 						try {
-							log.debug("Notifying event: {}", e);
-							e.notify(entry.event);
+							handler.notify(qe.event);
 						} catch (EventVetoException ex) {
 							// skip others on event veto
 							vetoed = true;
 						}
 					}
+				}
+			}
+		}
+		
+		@Override
+		public void run() {
+			while (!killed) {
+				try {
+					process(queue.take());
 				} catch (InterruptedException ex) {
 					break;
 				}

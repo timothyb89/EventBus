@@ -37,4 +37,15 @@ public @interface EventHandler {
 	 */
 	boolean vetoable() default true;
 	
+	/**
+	 * Specifies whether or not this event handler is exempt from skipping that
+	 * may occur if an event processing deadline has been exceeded.  This flag
+	 * has no effect if {@link EventBus#push(Event, long)} is not used.
+	 * <p>By default, this is false, and caution should be used when choosing to
+	 * enable exemption.</p>
+	 * @return true if this handler should be exempt from deadlines, false if
+	 *     not
+	 */
+	boolean deadlineExempt() default false;
+	
 }

@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * A simple mark that a class should have detailed scanning enabled. This
  * functionality is kept separate as scanning for private methods can be fairly
  * expensive
- * @author tim
+ * @author timothyb89
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)

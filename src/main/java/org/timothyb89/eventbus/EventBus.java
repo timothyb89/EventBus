@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.timothyb89.eventbus.executor.Executor;
+import org.timothyb89.eventbus.executor.SimpleExecutor;
 
 /**
  * Defines an event bus that handles the dispatching of events to client
@@ -42,14 +44,36 @@ public class EventBus {
 	private final List<EventQueueDefinition> definitions;
 	
 	/**
-	 * Client-safe interface for the event bus
+	 * Event dispatching handler
+	 */
+	private final Executor executor;
+	
+	/**
+	 * Client-safe interface for this bus
 	 */
 	@Getter
 	private final EventBusClient client;
 	
+	/**
+	 * Creates a new event bus. By default, a {@link SimpleExecutor} is used
+	 * to dispatch events; use {@link #EventBus(Executor)} to specify a
+	 * different implementation.
+	 */
 	public EventBus() {
 		definitions = new ArrayList<>();
 		
+		executor = new SimpleExecutor();
+		client = new EventBusClient(this);
+	}
+	
+	/**
+	 * Creates a new event bus with the given {@link Executor} implementation.
+	 * @param executor the executor implementation to use
+	 */
+	public EventBus(Executor executor) {
+		this.executor = executor;
+		
+		definitions = new ArrayList<>();
 		client = new EventBusClient(this);
 	}
 	
@@ -98,9 +122,15 @@ public class EventBus {
 	 * {@link EventVetoException} will cause handlers further down in the queue
 	 * to be skipped. Specifically, this notifies the event queue that exactly
 	 * matches the class (as handlers are added to superclass queues at
-	 * registration time)
+	 * registration time).
 	 * <p>If no queue exists for the given event type, no listeners will be
 	 * notified and the method will fail silently.</p>
+	 * <p>The actual behavior of this method depends on the {@link Executor}
+	 * this {@code EventBus} was constructed with. By default, events are
+	 * executed on the current thread, and this method will not return until all
+	 * listeners have been notified; however, different executors may offload
+	 * processing to one or more dedicated threads, causing this method to
+	 * return immediately.</p>
 	 * <p>Unlike {@link #add(Class)} and {@link #remove(Class)}, this method
 	 * <i>is</i> thread-safe and can be safely used concurrently.</p>
 	 * @param event the event to push
@@ -108,23 +138,28 @@ public class EventBus {
 	public void push(Event event) {
 		EventQueueDefinition def = getQueueForClass(event.getClass());
 		if (def != null) {
-			def.push(event);
-		}
+			executor.push(def, event, -1);
+		} // TODO: else: warn?
 	}
 	
 	/**
-	 * Pushes the given event to the bus, but only notifies those with a
-	 * priority flag greater than or equal to the given {@code priority}. Note
-	 * that the default priority is {@link EventPriority#NORMAL} (0).
+	 * Pushes the given event to the bus, with a specified deadline. A deadline
+	 * is the time (relative to the start of event processing) after which no
+	 * additional event handlers will be notified.
+	 * <p>The deadline is not strictly enforced: event handlers will not be
+	 * terminated if the deadline is exceeded, but lower-priority handlers
+	 * remaining in the queue will not be notified when the specified amount of
+	 * time has passed.</p>
+	 * <p>Event veto functionality and event prioritization is identical to that
+	 * of {@link #push(Event)}.</p>
 	 * @see #push(Event) 
-	 * @see EventPriority
-	 * @param event the event to push
-	 * @param priority the minimum event priority 
+	 * @param event the event to push 
+	 * @param deadline the maximum time to spend notify handlers (milliseconds)
 	 */
-	public void push(Event event, int priority) {
+	public void push(Event event, long deadline) {
 		EventQueueDefinition def = getQueueForClass(event.getClass());
 		if (def != null) {
-			def.push(event, priority);
+			executor.push(def, event, deadline);
 		}
 	}
 	
@@ -145,9 +180,11 @@ public class EventBus {
 	 * @param m the method to register
 	 * @param priority the event priority
 	 * @param vetoable vetoable flag
+	 * @param deadlineExempt deadline exemption flag
 	 */
 	protected void registerMethod(
-			Object o, Method m, int priority, boolean vetoable) {
+			Object o, Method m,
+			int priority, boolean vetoable, boolean deadlineExempt) {
 		// check the parameter types, and attempt to resolve the event
 		// type
 		if (m.getParameterTypes().length != 1) {
@@ -172,7 +209,8 @@ public class EventBus {
 		// work as expected)
 		for (EventQueueDefinition d : definitions) {
 			if (param.isAssignableFrom(d.getEventType())) {
-				d.add(new EventQueueEntry(o, m, priority, vetoable));
+				d.add(new EventQueueEntry(
+						o, m, priority, vetoable, deadlineExempt));
 				log.debug("Added {} to queue {}", m, d.getEventType());
 			}
 		}
@@ -201,10 +239,11 @@ public class EventBus {
 			EventHandler h = m.getAnnotation(EventHandler.class);
 			int priority = h.priority();
 			boolean vetoable = h.vetoable();
+			boolean deadlineExempt = h.deadlineExempt();
 
 			m.setAccessible(true);
 
-			registerMethod(o, m, priority, vetoable);
+			registerMethod(o, m, priority, vetoable, deadlineExempt);
 		}
 	}
 	
@@ -228,7 +267,7 @@ public class EventBus {
 	 * {@code EXTENDED}), and private members defined in any superclass. This
 	 * will incur the highest runtime cost, but will preserve any event-related
 	 * functionality.
-	 * @see EventBus#registerMethod(Object, Method, int)
+	 * @see #registerMethod(Object, Method, int, boolean, boolean)
 	 * @param o the object to process
 	 */
 	public void register(Object o) {
@@ -248,8 +287,9 @@ public class EventBus {
 				EventHandler h = m.getAnnotation(EventHandler.class);
 				int priority = h.priority();
 				boolean vetoable = h.vetoable();
+				boolean deadlineExempt = h.deadlineExempt();
 				
-				registerMethod(o, m, priority, vetoable);
+				registerMethod(o, m, priority, vetoable, deadlineExempt);
 			}
 		}
 		

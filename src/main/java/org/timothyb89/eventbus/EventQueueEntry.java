@@ -2,6 +2,7 @@ package org.timothyb89.eventbus;
 
 import java.lang.reflect.Method;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -13,31 +14,64 @@ import lombok.extern.slf4j.Slf4j;
  * @author timothyb89
  */
 @Slf4j
+@ToString
 public class EventQueueEntry implements Comparable<EventQueueEntry> {
 	
 	@Getter
-	private Object object;
+	private final Object object;
 	
 	@Getter
-	private Method method;
+	private final Method method;
 	
 	@Getter
-	private int priority;
+	private final int priority;
 	
 	@Getter
-	private boolean vetoable;
+	private final boolean vetoable;
+	
+	@Getter
+	private final boolean deadlineExempt;
 
 	public EventQueueEntry(
-			Object object, Method method, int priority, boolean vetoable) {
+			Object object, Method method, int priority,
+			boolean vetoable, boolean deadlineExempt) {
 		this.object = object;
 		this.method = method;
 		this.priority = priority;
 		this.vetoable = vetoable;
+		this.deadlineExempt = deadlineExempt;
 	}
 	
 	@Override
 	public int compareTo(EventQueueEntry o) {
 		return o.priority - priority;
+	}
+	
+	/**
+	 * Checks if the event handler referenced by this object can be invoked.
+	 * Specifically, this determines if the event can be triggered after a veto
+	 * has occurred, or if a deadline has already passed.
+	 * @param vetoed true if the event has already been vetoed, false otherwise
+	 * @param start the starting time of event processing
+	 * @param deadline the deadline, or -1 if none is set
+	 * @return true if the handler can be notified, false otherwise
+	 */
+	public boolean canInvoke(boolean vetoed, long start, long deadline) {
+		if (vetoed && vetoable) {
+			log.trace("Skipping handler (vetoed): {}", this);
+			return false;
+		}
+		
+		if (deadline > 0 && !deadlineExempt) {
+			if (System.currentTimeMillis() - start > deadline) {
+				log.trace(
+						"Skipping handler (deadline exceeded): {}",
+						this);
+				return false;
+			}
+		}
+		
+		return true;
 	}
 	
 	/**
@@ -49,6 +83,7 @@ public class EventQueueEntry implements Comparable<EventQueueEntry> {
 	 */
 	public void notify(Event event) {
 		try {
+			log.debug("Notifying handler: {}", method);
 			method.invoke(object, event);
 		} catch (EventVetoException ex) {
 			// skip this - it needs to be passed to the queue to skip properly

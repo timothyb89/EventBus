@@ -9,7 +9,7 @@ package org.timothyb89.eventbus;
  */
 public class EventBusClient {
 	
-	private EventBus bus;
+	private final EventBus bus;
 
 	public EventBusClient(EventBus bus) {
 		this.bus = bus;
@@ -18,8 +18,8 @@ public class EventBusClient {
 	/**
 	 * Registers all methods of the given object annotated with
 	 * {@link EventHandler}.
-	 * @see EventBus#registerMethod(Object, Method, int)
-	 * @param o the object to process
+	 * @see EventBus#registerMethod(Object, Method, int, boolean, boolean)
+	 * @param object the object to process
 	 */
 	public void register(Object object) {
 		bus.register(object);
